@@ -8,6 +8,26 @@ import {
   OFFICIAL_PRODUCTS_CATALOG,
 } from "@/lib/default-catalog";
 
+const OLD_DEMO_PRODUCT_NAMES = [
+  "Corona de Zirconio Monolítico",
+  "Corona Metal Cerámica (Porcelana)",
+  "Prótesis Completa de Acrílico (Superior o Inferior)",
+  "Cromo Cobalto (Esquelético Base)",
+  "Prótesis Flexible (Deflex / Poliamida)",
+  "Placa Miorrelajante (Bruxismo)",
+  "Provisorio de Acrílico por Pieza",
+  "Reparación Simple / Agregado de Diente",
+];
+
+const OLD_DEMO_CATEGORY_NAMES = [
+  "Prótesis Fija",
+  "Prótesis Removible",
+  "Cromo Cobalto",
+  "Ortodoncia y Placas",
+  "Provisorios",
+  "Reparaciones",
+];
+
 export async function GET(req: NextRequest) {
   try {
     const session = await getRequestSession(req);
@@ -15,16 +35,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    // Migración automática al catálogo oficial Abril 2026 si la base en la nube aún tenía el catálogo de prueba o estaba vacía
-    const [catCount, prodCount, oldSampleProduct] = await Promise.all([
-      prisma.category.count(),
-      prisma.product.count(),
-      prisma.product.findFirst({
-        where: { name: "Corona de Zirconio Monolítico" },
-      }),
-    ]);
+    // Verificar si ya se cargó el catálogo oficial Abril 2026 en esta base de datos
+    const hasOfficialCatalog = await prisma.product.findFirst({
+      where: { name: "Removible de acrílico - Hasta 4 elementos" },
+    });
 
-    if (prodCount === 0 || (catCount === 0 && oldSampleProduct)) {
+    if (!hasOfficialCatalog) {
+      // 1. Asegurar las 8 categorías oficiales del PDF con su orden
       for (const cat of OFFICIAL_CATEGORIES) {
         await prisma.category.upsert({
           where: { name: cat.name },
@@ -33,14 +50,35 @@ export async function GET(req: NextRequest) {
         });
       }
 
-      if (oldSampleProduct && prodCount <= 8) {
-        await prisma.product.deleteMany();
+      // 2. Eliminar únicamente los 8 productos de demostración viejos (conservando cualquier producto creado por el protesista)
+      await prisma.product.deleteMany({
+        where: { name: { in: OLD_DEMO_PRODUCT_NAMES } },
+      });
+
+      // 3. Limpiar categorías viejas de demostración que hayan quedado vacías
+      for (const oldCatName of OLD_DEMO_CATEGORY_NAMES) {
+        const countInOld = await prisma.product.count({
+          where: { category: oldCatName },
+        });
+        if (countInOld === 0) {
+          await prisma.category.deleteMany({
+            where: { name: oldCatName },
+          });
+        }
       }
 
-      const currentAfterClean = await prisma.product.count();
-      if (currentAfterClean === 0) {
+      // 4. Insertar los 32 productos oficiales del PDF sin duplicar si alguno ya existía
+      const existingProducts = await prisma.product.findMany({
+        select: { name: true },
+      });
+      const existingNames = new Set(existingProducts.map((p) => p.name));
+      const toInsert = OFFICIAL_PRODUCTS_CATALOG.filter(
+        (p) => !existingNames.has(p.name)
+      );
+
+      if (toInsert.length > 0) {
         await prisma.product.createMany({
-          data: OFFICIAL_PRODUCTS_CATALOG,
+          data: toInsert,
         });
       }
     }

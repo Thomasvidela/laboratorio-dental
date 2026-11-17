@@ -5,15 +5,12 @@ import { OFFICIAL_CATEGORIES } from "@/lib/default-catalog";
 import { triggerAutoBackup } from "@/lib/auto-backup";
 
 export async function ensureDefaultCategories() {
-  const count = await prisma.category.count();
-  if (count === 0) {
-    for (const cat of OFFICIAL_CATEGORIES) {
-      await prisma.category.upsert({
-        where: { name: cat.name },
-        update: { sortOrder: cat.sortOrder },
-        create: { name: cat.name, sortOrder: cat.sortOrder },
-      });
-    }
+  for (const cat of OFFICIAL_CATEGORIES) {
+    await prisma.category.upsert({
+      where: { name: cat.name },
+      update: {},
+      create: { name: cat.name, sortOrder: cat.sortOrder },
+    });
   }
 
   // Asegurar que cualquier categoría usada por algún producto existente también esté registrada
