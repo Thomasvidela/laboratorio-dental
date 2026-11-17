@@ -844,10 +844,18 @@ export default function DentistDetailPage({
                     <option value="">
                       -- Elegir producto del catálogo (o escribir abajo) --
                     </option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} — {formatCurrency(p.price)} ({p.category})
-                      </option>
+                    {Array.from(
+                      new Set(products.map((p) => p.category || "General"))
+                    ).map((cat) => (
+                      <optgroup key={cat} label={cat}>
+                        {products
+                          .filter((p) => (p.category || "General") === cat)
+                          .map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name} — {formatCurrency(p.price)}
+                            </option>
+                          ))}
+                      </optgroup>
                     ))}
                   </select>
                 </div>

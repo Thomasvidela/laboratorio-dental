@@ -7,6 +7,11 @@ export interface BackupDataPayload {
   reason?: string;
   labName?: string;
   data: {
+    categories?: Array<{
+      id?: string;
+      name: string;
+      sortOrder: number;
+    }>;
     products: Array<{
       id: string;
       name: string;
@@ -51,7 +56,8 @@ export async function buildBackupPayload(
   reason = "Respaldo Automático",
   labName = "Laboratorio Dental"
 ): Promise<BackupDataPayload> {
-  const [products, dentists, entries] = await Promise.all([
+  const [categories, products, dentists, entries] = await Promise.all([
+    prisma.category.findMany({ orderBy: { sortOrder: "asc" } }),
     prisma.product.findMany({ orderBy: { name: "asc" } }),
     prisma.dentist.findMany({ orderBy: { fullName: "asc" } }),
     prisma.ledgerEntry.findMany({ orderBy: { occurredAt: "desc" } }),
@@ -62,6 +68,7 @@ export async function buildBackupPayload(
     reason,
     labName,
     data: {
+      categories,
       products,
       dentists,
       entries,
@@ -145,6 +152,7 @@ export async function restoreFromBackupPayload(
   // Guardar punto de restauración previo por seguridad antes de pisar datos
   await triggerAutoBackup("Respaldo automático previo a restauración");
 
+  const categories = payload.data.categories || [];
   const products = payload.data.products || [];
   const dentists = payload.data.dentists || [];
   const entries = payload.data.entries || [];
@@ -153,8 +161,33 @@ export async function restoreFromBackupPayload(
     await tx.ledgerEntry.deleteMany();
     await tx.dentist.deleteMany();
     await tx.product.deleteMany();
+    await tx.category.deleteMany();
+
+    const seenCats = new Set<string>();
+    let orderIdx = 1;
+    for (const c of categories) {
+      const catName = String(c.name || "").trim();
+      if (!catName || seenCats.has(catName)) continue;
+      seenCats.add(catName);
+      await tx.category.create({
+        data: {
+          name: catName,
+          sortOrder: typeof c.sortOrder === "number" ? c.sortOrder : orderIdx++,
+        },
+      });
+    }
 
     for (const p of products) {
+      const catName = String(p.category || "General").trim();
+      if (!seenCats.has(catName)) {
+        seenCats.add(catName);
+        await tx.category.create({
+          data: {
+            name: catName,
+            sortOrder: orderIdx++,
+          },
+        });
+      }
       await tx.product.create({
         data: {
           id: p.id,

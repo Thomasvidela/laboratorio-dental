@@ -287,16 +287,23 @@ export function generatePriceListPdfBytes(
     pagesCommands.push(currentCommands);
   }
 
-  // Agregar pie de página con numeración a todas las páginas
+  // Agregar pie de página con datos del protesista y numeración a todas las páginas
   const totalPages = pagesCommands.length;
   pagesCommands.forEach((cmds, index) => {
     cmds.push("0.85 0.88 0.92 RG 0.5 w");
-    cmds.push(`${marginX} 42 m ${marginX + contentWidth} 42 l S`);
+    cmds.push(`${marginX} 48 m ${marginX + contentWidth} 48 l S`);
 
-    cmds.push("0.45 0.5 0.58 rg");
+    cmds.push("0.15 0.2 0.28 rg");
     cmds.push(
-      `BT /F1 8.5 Tf ${marginX} 28 Td (${encodePdfText(
-        `${labName} — Documento generado desde DentalLab Pro PWA`
+      `BT /F2 8.5 Tf ${marginX} 34 Td (${encodePdfText(
+        "Tec. Superior en Prótesis Dental: Néstor Javier Videla  |  Santo Nobile (Norte) 1993 - Colonia Caroya - Córdoba"
+      )}) Tj ET`
+    );
+
+    cmds.push("0.35 0.4 0.48 rg");
+    cmds.push(
+      `BT /F1 8 Tf ${marginX} 22 Td (${encodePdfText(
+        "Tel: (03525) 462420 - 15447040   |   WhatsApp: 3525447040   |   Email: javi4097@gmail.com"
       )}) Tj ET`
     );
 
@@ -749,12 +756,19 @@ export function generateDentistStatementPdfBytes(
   const totalPages = pagesCommands.length;
   pagesCommands.forEach((cmds, index) => {
     cmds.push("0.85 0.88 0.92 RG 0.5 w");
-    cmds.push(`${marginX} 42 m ${marginX + contentWidth} 42 l S`);
+    cmds.push(`${marginX} 48 m ${marginX + contentWidth} 48 l S`);
 
-    cmds.push("0.45 0.5 0.58 rg");
+    cmds.push("0.15 0.2 0.28 rg");
     cmds.push(
-      `BT /F1 8.5 Tf ${marginX} 28 Td (${encodePdfText(
-        `${labName} — Resumen de Cuenta de ${dentist.fullName}`
+      `BT /F2 8.5 Tf ${marginX} 34 Td (${encodePdfText(
+        "Tec. Superior en Prótesis Dental: Néstor Javier Videla  |  Santo Nobile (Norte) 1993 - Colonia Caroya - Córdoba"
+      )}) Tj ET`
+    );
+
+    cmds.push("0.35 0.4 0.48 rg");
+    cmds.push(
+      `BT /F1 8 Tf ${marginX} 22 Td (${encodePdfText(
+        "Tel: (03525) 462420 - 15447040   |   WhatsApp: 3525447040   |   Email: javi4097@gmail.com"
       )}) Tj ET`
     );
 

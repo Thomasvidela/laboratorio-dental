@@ -24,6 +24,21 @@ export async function PUT(
       );
     }
 
+    const existingCat = await prisma.category.findUnique({
+      where: { name: parsed.data.category },
+    });
+    if (!existingCat) {
+      const lastCat = await prisma.category.findFirst({
+        orderBy: { sortOrder: "desc" },
+      });
+      await prisma.category.create({
+        data: {
+          name: parsed.data.category,
+          sortOrder: (lastCat?.sortOrder || 0) + 1,
+        },
+      });
+    }
+
     const product = await prisma.product.update({
       where: { id },
       data: parsed.data,

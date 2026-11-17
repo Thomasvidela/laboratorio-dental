@@ -3,12 +3,46 @@ import { prisma } from "@/lib/prisma";
 import { getRequestSession } from "@/lib/auth";
 import { bulkPriceAdjustmentSchema, productSchema } from "@/lib/validators";
 import { triggerAutoBackup } from "@/lib/auto-backup";
+import {
+  OFFICIAL_CATEGORIES,
+  OFFICIAL_PRODUCTS_CATALOG,
+} from "@/lib/default-catalog";
 
 export async function GET(req: NextRequest) {
   try {
     const session = await getRequestSession(req);
     if (!session) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    // Migración automática al catálogo oficial Abril 2026 si la base en la nube aún tenía el catálogo de prueba o estaba vacía
+    const [catCount, prodCount, oldSampleProduct] = await Promise.all([
+      prisma.category.count(),
+      prisma.product.count(),
+      prisma.product.findFirst({
+        where: { name: "Corona de Zirconio Monolítico" },
+      }),
+    ]);
+
+    if (prodCount === 0 || (catCount === 0 && oldSampleProduct)) {
+      for (const cat of OFFICIAL_CATEGORIES) {
+        await prisma.category.upsert({
+          where: { name: cat.name },
+          update: { sortOrder: cat.sortOrder },
+          create: { name: cat.name, sortOrder: cat.sortOrder },
+        });
+      }
+
+      if (oldSampleProduct && prodCount <= 8) {
+        await prisma.product.deleteMany();
+      }
+
+      const currentAfterClean = await prisma.product.count();
+      if (currentAfterClean === 0) {
+        await prisma.product.createMany({
+          data: OFFICIAL_PRODUCTS_CATALOG,
+        });
+      }
     }
 
     const products = await prisma.product.findMany({
@@ -39,6 +73,22 @@ export async function POST(req: NextRequest) {
         { error: parsed.error.issues[0]?.message || "Datos inválidos" },
         { status: 400 }
       );
+    }
+
+    // Asegurar que la categoría exista en la tabla de categorías
+    const existingCat = await prisma.category.findUnique({
+      where: { name: parsed.data.category },
+    });
+    if (!existingCat) {
+      const lastCat = await prisma.category.findFirst({
+        orderBy: { sortOrder: "desc" },
+      });
+      await prisma.category.create({
+        data: {
+          name: parsed.data.category,
+          sortOrder: (lastCat?.sortOrder || 0) + 1,
+        },
+      });
     }
 
     const product = await prisma.product.create({

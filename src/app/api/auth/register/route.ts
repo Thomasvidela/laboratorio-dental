@@ -8,57 +8,10 @@ import {
 } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { registerSchema } from "@/lib/validators";
-
-const DEFAULT_PRODUCTS = [
-  {
-    name: "Corona de Zirconio Monolítico",
-    category: "Prótesis Fija",
-    description: "Corona fresada CAD/CAM alta estética",
-    price: 65000,
-  },
-  {
-    name: "Corona Metal Cerámica (Porcelana)",
-    category: "Prótesis Fija",
-    description: "Casquete metálico con recubrimiento cerámico",
-    price: 48000,
-  },
-  {
-    name: "Prótesis Completa de Acrílico (Superior o Inferior)",
-    category: "Prótesis Removible",
-    description: "Acrílico termocurado de alto impacto con dientes tricapa",
-    price: 85000,
-  },
-  {
-    name: "Cromo Cobalto (Esquelético Base)",
-    category: "Cromo Cobalto",
-    description: "Armazón metálico colado con retenedores",
-    price: 72000,
-  },
-  {
-    name: "Prótesis Flexible (Deflex / Poliamida)",
-    category: "Prótesis Removible",
-    description: "Prótesis parcial removible estética sin ganchos metálicos",
-    price: 92000,
-  },
-  {
-    name: "Placa Miorrelajante (Bruxismo)",
-    category: "Ortodoncia y Placas",
-    description: "Placa rígida o termoformada programada",
-    price: 38000,
-  },
-  {
-    name: "Provisorio de Acrílico por Pieza",
-    category: "Provisorios",
-    description: "Corona provisoria termocurada o PMMA",
-    price: 16000,
-  },
-  {
-    name: "Reparación Simple / Agregado de Diente",
-    category: "Reparaciones",
-    description: "Reparación de fractura simple o agregado de 1 pieza en acrílico",
-    price: 18000,
-  },
-];
+import {
+  OFFICIAL_CATEGORIES,
+  OFFICIAL_PRODUCTS_CATALOG,
+} from "@/lib/default-catalog";
 
 export async function POST(req: NextRequest) {
   try {
@@ -118,11 +71,18 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Si es la primera cuenta del laboratorio y no hay productos aún, precargamos un catálogo base editable
+    // Si es la primera cuenta del laboratorio y no hay productos aún, precargamos el catálogo oficial del PDF
     const productCount = await prisma.product.count();
     if (productCount === 0) {
+      for (const cat of OFFICIAL_CATEGORIES) {
+        await prisma.category.upsert({
+          where: { name: cat.name },
+          update: { sortOrder: cat.sortOrder },
+          create: { name: cat.name, sortOrder: cat.sortOrder },
+        });
+      }
       await prisma.product.createMany({
-        data: DEFAULT_PRODUCTS,
+        data: OFFICIAL_PRODUCTS_CATALOG,
       });
     }
 
