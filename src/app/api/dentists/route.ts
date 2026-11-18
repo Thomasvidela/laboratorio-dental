@@ -79,8 +79,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const { initialBalance, ...dentistData } = parsed.data;
+    const cleanInitial = Math.round((Number(initialBalance) || 0) * 100) / 100;
+
     const dentist = await prisma.dentist.create({
-      data: parsed.data,
+      data: {
+        ...dentistData,
+        ...(cleanInitial > 0
+          ? {
+              entries: {
+                create: {
+                  type: "CHARGE",
+                  productId: null,
+                  concept: "Saldo anterior acumulado",
+                  patientOrNotes: "Monto migrado de cuenta previa",
+                  quantity: 1,
+                  unitPrice: cleanInitial,
+                  amount: cleanInitial,
+                  occurredAt: new Date(),
+                },
+              },
+            }
+          : {}),
+      },
     });
 
     await triggerAutoBackup(`Dentista registrado: ${dentist.fullName}`);
@@ -89,10 +110,10 @@ export async function POST(req: NextRequest) {
       {
         dentist: {
           ...dentist,
-          totalCharges: 0,
+          totalCharges: cleanInitial,
           totalPayments: 0,
-          balance: 0,
-          entriesCount: 0,
+          balance: cleanInitial,
+          entriesCount: cleanInitial > 0 ? 1 : 0,
           lastActivity: dentist.createdAt,
         },
       },

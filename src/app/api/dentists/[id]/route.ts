@@ -85,9 +85,12 @@ export async function PUT(
       );
     }
 
+    const { initialBalance: _unused, ...dentistData } = parsed.data;
+    void _unused;
+
     const dentist = await prisma.dentist.update({
       where: { id },
-      data: parsed.data,
+      data: dentistData,
     });
 
     return NextResponse.json({ dentist });

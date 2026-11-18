@@ -59,6 +59,7 @@ function DentistasContent() {
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
+  const [initialBalance, setInitialBalance] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -105,6 +106,7 @@ function DentistasContent() {
     setEmail("");
     setAddress("");
     setNotes("");
+    setInitialBalance("");
     setError("");
     setModalOpen(true);
   };
@@ -147,6 +149,7 @@ function DentistasContent() {
           email,
           address,
           notes,
+          initialBalance: !editingDentist ? Number(initialBalance) || 0 : 0,
         }),
       });
 
@@ -463,6 +466,27 @@ function DentistasContent() {
                   />
                 </div>
               </div>
+
+              {!editingDentist && (
+                <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3">
+                  <label className="block text-xs font-bold text-amber-900 mb-1">
+                    Saldo Anterior Acumulado ($) — Opcional
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={initialBalance}
+                    onChange={(e) => setInitialBalance(e.target.value)}
+                    placeholder="Ej. 120000 (dejar vacío o 0 si no debe nada previo)"
+                    className="w-full px-3.5 py-2 text-sm font-bold bg-white border border-amber-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <span className="block text-[11px] text-amber-800 mt-1">
+                    Si el dentista ya tenía deuda previa anotada, se cargará
+                    automáticamente como &quot;Saldo anterior acumulado&quot;.
+                  </span>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">

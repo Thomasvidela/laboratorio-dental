@@ -22,6 +22,7 @@ import {
   Tag,
   MessageCircle,
   FileDown,
+  History,
 } from "lucide-react";
 import {
   formatArgentinaWhatsAppNumber,
@@ -88,10 +89,11 @@ export default function DentistDetailPage({
     labName: string;
   }>({ name: "", labName: "Laboratorio Dental" });
 
-  // Modal Crear / Editar Movimiento (Trabajo o Pago)
+  // Modal Crear / Editar Movimiento (Trabajo, Saldo Anterior o Pago)
   const [entryModalOpen, setEntryModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<LedgerEntry | null>(null);
   const [entryType, setEntryType] = useState<"CHARGE" | "PAYMENT">("CHARGE");
+  const [isPreviousBalanceMode, setIsPreviousBalanceMode] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [concept, setConcept] = useState("");
   const [patientOrNotes, setPatientOrNotes] = useState("");
@@ -181,8 +183,24 @@ export default function DentistDetailPage({
   const openChargeModal = () => {
     setEditingEntry(null);
     setEntryType("CHARGE");
+    setIsPreviousBalanceMode(false);
     setSelectedProductId("");
     setConcept("");
+    setPatientOrNotes("");
+    setQuantity("1");
+    setUnitPrice("");
+    setAmount("");
+    setOccurredAt(toLocalDateTimeInputValue(new Date()));
+    setEntryError("");
+    setEntryModalOpen(true);
+  };
+
+  const openPreviousBalanceModal = () => {
+    setEditingEntry(null);
+    setEntryType("CHARGE");
+    setIsPreviousBalanceMode(true);
+    setSelectedProductId("");
+    setConcept("Saldo anterior acumulado");
     setPatientOrNotes("");
     setQuantity("1");
     setUnitPrice("");
@@ -195,6 +213,7 @@ export default function DentistDetailPage({
   const openPaymentModal = () => {
     setEditingEntry(null);
     setEntryType("PAYMENT");
+    setIsPreviousBalanceMode(false);
     setSelectedProductId("");
     setConcept("Pago a cuenta / Entrega");
     setPatientOrNotes("");
@@ -209,6 +228,11 @@ export default function DentistDetailPage({
   const openEditEntryModal = (entry: LedgerEntry) => {
     setEditingEntry(entry);
     setEntryType(entry.type);
+    const isPrevBal =
+      entry.type === "CHARGE" &&
+      !entry.productId &&
+      entry.concept.toLowerCase().includes("saldo anterior");
+    setIsPreviousBalanceMode(isPrevBal);
     setSelectedProductId(entry.productId || "");
     setConcept(entry.concept);
     setPatientOrNotes(entry.patientOrNotes || "");
@@ -590,14 +614,23 @@ export default function DentistDetailPage({
         </div>
 
         {/* Botones Principales de Acción para el Protesista */}
-        <div className="bg-slate-50 px-5 py-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="bg-slate-50 px-5 py-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3">
           <button
             type="button"
             onClick={openChargeModal}
             className="w-full bg-sky-600 hover:bg-sky-500 text-white font-semibold py-3 px-4 rounded-xl text-sm shadow-xs flex items-center justify-center gap-2 transition cursor-pointer"
           >
             <PlusCircle className="w-5 h-5" />
-            Cargar Producto / Trabajo Protésico
+            Cargar Producto / Trabajo
+          </button>
+
+          <button
+            type="button"
+            onClick={openPreviousBalanceModal}
+            className="w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold py-3 px-4 rounded-xl text-sm shadow-xs flex items-center justify-center gap-2 transition cursor-pointer"
+          >
+            <History className="w-5 h-5" />
+            Cargar Saldo Anterior
           </button>
 
           <button
@@ -679,6 +712,10 @@ export default function DentistDetailPage({
           <div className="divide-y divide-slate-100">
             {entriesWithRunningBalance.map((entry) => {
               const isCharge = entry.type === "CHARGE";
+              const isPrevBal =
+                isCharge &&
+                !entry.productId &&
+                entry.concept.toLowerCase().includes("saldo anterior");
               return (
                 <div
                   key={entry.id}
@@ -688,12 +725,18 @@ export default function DentistDetailPage({
                     <div className="flex items-center gap-2 flex-wrap">
                       <span
                         className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
-                          isCharge
+                          isPrevBal
+                            ? "bg-amber-100 text-amber-800"
+                            : isCharge
                             ? "bg-sky-100 text-sky-800"
                             : "bg-emerald-100 text-emerald-800"
                         }`}
                       >
-                        {isCharge ? "+ Trabajo / Producto" : "- Pago Recibido"}
+                        {isPrevBal
+                          ? "+ Saldo Anterior"
+                          : isCharge
+                          ? "+ Trabajo / Producto"
+                          : "- Pago Recibido"}
                       </span>
 
                       <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
@@ -776,12 +819,18 @@ export default function DentistDetailPage({
           <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden my-8">
             <div
               className={`px-5 py-4 text-white flex items-center justify-between ${
-                entryType === "CHARGE" ? "bg-sky-700" : "bg-emerald-700"
+                isPreviousBalanceMode
+                  ? "bg-amber-600"
+                  : entryType === "CHARGE"
+                  ? "bg-sky-700"
+                  : "bg-emerald-700"
               }`}
             >
               <h2 className="font-bold text-sm sm:text-base">
                 {editingEntry
                   ? "Editar Movimiento"
+                  : isPreviousBalanceMode
+                  ? "Cargar Saldo Anterior Acumulado"
                   : entryType === "CHARGE"
                   ? "Cargar Producto / Trabajo al Dentista"
                   : "Registrar Pago del Dentista"}
@@ -802,35 +851,65 @@ export default function DentistDetailPage({
                 </div>
               )}
 
+              {isPreviousBalanceMode && !editingEntry && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3 text-xs leading-relaxed">
+                  Ingresa únicamente el <strong>monto acumulado previo</strong>{" "}
+                  que debe el dentista para sumarlo a su cuenta corriente sin
+                  necesidad de elegir un producto.
+                </div>
+              )}
+
               {/* Permite cambiar el tipo al editar si se cargó por error como pago/trabajo */}
               {editingEntry && (
-                <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
+                <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1 rounded-xl">
                   <button
                     type="button"
-                    onClick={() => setEntryType("CHARGE")}
+                    onClick={() => {
+                      setEntryType("CHARGE");
+                      setIsPreviousBalanceMode(false);
+                    }}
                     className={`py-1.5 text-xs font-semibold rounded-lg cursor-pointer ${
-                      entryType === "CHARGE"
+                      entryType === "CHARGE" && !isPreviousBalanceMode
                         ? "bg-sky-600 text-white"
                         : "text-slate-600"
                     }`}
                   >
-                    Trabajo / Producto (+)
+                    Trabajo (+)
                   </button>
                   <button
                     type="button"
-                    onClick={() => setEntryType("PAYMENT")}
+                    onClick={() => {
+                      setEntryType("CHARGE");
+                      setIsPreviousBalanceMode(true);
+                      setSelectedProductId("");
+                      if (!concept) setConcept("Saldo anterior acumulado");
+                    }}
+                    className={`py-1.5 text-xs font-semibold rounded-lg cursor-pointer ${
+                      entryType === "CHARGE" && isPreviousBalanceMode
+                        ? "bg-amber-600 text-white"
+                        : "text-slate-600"
+                    }`}
+                  >
+                    Saldo Ant. (+)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEntryType("PAYMENT");
+                      setIsPreviousBalanceMode(false);
+                    }}
                     className={`py-1.5 text-xs font-semibold rounded-lg cursor-pointer ${
                       entryType === "PAYMENT"
                         ? "bg-emerald-600 text-white"
                         : "text-slate-600"
                     }`}
                   >
-                    Pago Recibido (-)
+                    Pago (-)
                   </button>
                 </div>
               )}
 
-              {entryType === "CHARGE" && (
+              {entryType === "CHARGE" && !isPreviousBalanceMode && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
                     <Tag className="w-3.5 h-3.5 text-sky-600" />
@@ -861,27 +940,29 @@ export default function DentistDetailPage({
                 </div>
               )}
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  {entryType === "CHARGE"
-                    ? "Nombre del Producto / Trabajo *"
-                    : "Concepto del Pago *"}
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={concept}
-                  onChange={(e) => setConcept(e.target.value)}
-                  placeholder={
-                    entryType === "CHARGE"
-                      ? "Ej. Corona de Zirconio"
-                      : "Ej. Pago en efectivo / Transferencia"
-                  }
-                  className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500"
-                />
-              </div>
+              {!isPreviousBalanceMode && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    {entryType === "CHARGE"
+                      ? "Nombre del Producto / Trabajo *"
+                      : "Concepto del Pago *"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={concept}
+                    onChange={(e) => setConcept(e.target.value)}
+                    placeholder={
+                      entryType === "CHARGE"
+                        ? "Ej. Corona de Zirconio"
+                        : "Ej. Pago en efectivo / Transferencia"
+                    }
+                    className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+              )}
 
-              {entryType === "CHARGE" && (
+              {entryType === "CHARGE" && !isPreviousBalanceMode && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -928,7 +1009,9 @@ export default function DentistDetailPage({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  {entryType === "CHARGE"
+                  {isPreviousBalanceMode
+                    ? "Monto del Saldo Anterior Acumulado ($) *"
+                    : entryType === "CHARGE"
                     ? "Monto Total del Trabajo ($) *"
                     : "Monto Abonado ($) *"}
                 </label>
@@ -939,14 +1022,32 @@ export default function DentistDetailPage({
                   required
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  placeholder="Ej. 65000"
+                  placeholder="Ej. 150000"
                   className="w-full px-3.5 py-2.5 text-base font-extrabold border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500"
                 />
               </div>
 
+              {isPreviousBalanceMode && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Concepto *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={concept}
+                    onChange={(e) => setConcept(e.target.value)}
+                    placeholder="Saldo anterior acumulado"
+                    className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  {entryType === "CHARGE"
+                  {isPreviousBalanceMode
+                    ? "Observación / Detalle (Opcional)"
+                    : entryType === "CHARGE"
                     ? "Paciente / Pieza Dental / Color / Notas"
                     : "Método de Pago / Comprobante / Notas"}
                 </label>
@@ -955,7 +1056,9 @@ export default function DentistDetailPage({
                   value={patientOrNotes}
                   onChange={(e) => setPatientOrNotes(e.target.value)}
                   placeholder={
-                    entryType === "CHARGE"
+                    isPreviousBalanceMode
+                      ? "Ej. Saldo migrado del cuaderno hasta Octubre"
+                      : entryType === "CHARGE"
                       ? "Ej. Paciente Juan Pérez - Pieza 24 - Color A2"
                       : "Ej. Transferencia MercadoPago / Efectivo"
                   }
@@ -988,7 +1091,9 @@ export default function DentistDetailPage({
                   type="submit"
                   disabled={savingEntry}
                   className={`px-5 py-2.5 rounded-xl text-xs font-semibold text-white shadow-sm cursor-pointer ${
-                    entryType === "CHARGE"
+                    isPreviousBalanceMode
+                      ? "bg-amber-600 hover:bg-amber-500"
+                      : entryType === "CHARGE"
                       ? "bg-sky-600 hover:bg-sky-500"
                       : "bg-emerald-600 hover:bg-emerald-500"
                   }`}
@@ -997,6 +1102,8 @@ export default function DentistDetailPage({
                     ? "Guardando..."
                     : editingEntry
                     ? "Guardar Cambios"
+                    : isPreviousBalanceMode
+                    ? "Guardar Saldo Anterior"
                     : entryType === "CHARGE"
                     ? "Cargar Trabajo"
                     : "Registrar Pago"}

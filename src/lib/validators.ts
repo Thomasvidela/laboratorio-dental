@@ -76,6 +76,12 @@ export const dentistSchema = z.object({
   email: z.string().trim().max(120).optional().default(""),
   address: z.string().trim().max(200).optional().default(""),
   notes: z.string().trim().max(600).optional().default(""),
+  initialBalance: z.coerce
+    .number()
+    .min(0, "El saldo anterior no puede ser negativo")
+    .max(1000000000)
+    .optional()
+    .default(0),
 });
 
 export const ledgerEntrySchema = z.object({
